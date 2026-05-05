@@ -1,3 +1,4 @@
 bin/*
 scr/*
 .vs/*
+node_modules/*
