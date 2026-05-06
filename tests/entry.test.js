@@ -23,11 +23,7 @@ beforeAll(async () => {
         .post('/api/auth/register')
         .send(testUser);
     
-    if (res.statusCode !== 201) {
-        console.error('Registration failed:', res.body);
-    }
-    
-    token = res.body.token;
+    token = res.body.accessToken;
     userId = res.body._id;
 });
 
@@ -69,8 +65,9 @@ describe('Diary API with Auth', () => {
             .get('/api/entries')
             .set('Authorization', `Bearer ${token}`);
         expect(res.statusCode).toEqual(200);
-        expect(Array.isArray(res.body)).toBeTruthy();
-        expect(res.body.length).toBeGreaterThan(0);
+        expect(res.body.entries).toBeDefined();
+        expect(Array.isArray(res.body.entries)).toBeTruthy();
+        expect(res.body.entries.length).toBeGreaterThan(0);
     });
 
     it('should update user entry', async () => {

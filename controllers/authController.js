@@ -1,45 +1,42 @@
-const User = require('../models/User');
-const jwt = require('jsonwebtoken');
+const authService = require('../services/authService');
+const asyncHandler = require('express-async-handler');
 
-const generateToken = (id) => {
-    return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+// Налаштування кук для Refresh Token
+const cookieOptions = {
+    httpOnly: true, // Захист від XSS
+    secure: process.env.NODE_ENV === 'production', // Тільки через HTTPS у продакшені
+    sameSite: 'strict',
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 днів
 };
 
-exports.register = async (req, res) => {
-    try {
-        const { username, email, password } = req.body;
-        
-        const userExists = await User.findOne({ email });
-        if (userExists) return res.status(400).json({ message: 'Користувач вже існує' });
+exports.register = asyncHandler(async (req, res) => {
+    const { user, accessToken, refreshToken } = await authService.registerUser(req.body);
+    
+    res.cookie('refreshToken', refreshToken, cookieOptions);
+    res.status(201).json({ ...user, accessToken });
+});
 
-        const user = await User.create({ username, email, password });
-        res.status(201).json({
-            _id: user._id,
-            username: user.username,
-            email: user.email,
-            token: generateToken(user._id)
-        });
-    } catch (error) {
-        res.status(400).json({ message: error.message });
+exports.login = asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+    const { user, accessToken, refreshToken } = await authService.loginUser(email, password);
+    
+    res.cookie('refreshToken', refreshToken, cookieOptions);
+    res.json({ ...user, accessToken });
+});
+
+exports.refresh = asyncHandler(async (req, res) => {
+    const refreshToken = req.cookies.refreshToken;
+    
+    if (!refreshToken) {
+        res.status(401);
+        throw new Error('Refresh токен відсутній');
     }
-};
 
-exports.login = async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const user = await User.findOne({ email });
+    const { accessToken, user } = await authService.refreshSession(refreshToken);
+    res.json({ ...user, accessToken });
+});
 
-        if (user && (await user.comparePassword(password))) {
-            res.json({
-                _id: user._id,
-                username: user.username,
-                email: user.email,
-                token: generateToken(user._id)
-            });
-        } else {
-            res.status(401).json({ message: 'Невірний email або пароль' });
-        }
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
+exports.logout = asyncHandler(async (req, res) => {
+    res.clearCookie('refreshToken');
+    res.json({ message: 'Вихід успішний' });
+});

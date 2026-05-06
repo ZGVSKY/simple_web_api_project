@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const entryController = require('../controllers/entryController');
 const { protect } = require('../middleware/authMiddleware');
+const validate = require('../middleware/validateMiddleware');
+const { entrySchema, updateEntrySchema } = require('../validations/entryValidation');
 
 // Усі маршрути захищені
 router.use(protect);
@@ -10,57 +12,35 @@ router.use(protect);
  * @swagger
  * /api/entries:
  *   post:
- *     summary: Створити новий запис у щоденнику
+ *     summary: Створити новий запис
  *     tags: [Entries]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/Entry'
- *     responses:
- *       201:
- *         description: Запис успішно створено
  */
-router.post('/', entryController.createEntry);
+router.post('/', validate(entrySchema), entryController.createEntry);
 
 /**
  * @swagger
  * /api/entries:
  *   get:
- *     summary: Отримати список усіх записів користувача
+ *     summary: Отримати записи з пагінацією
  *     tags: [Entries]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: date
- *         schema:
- *           type: string
- *           format: date
- *       - in: query
- *         name: tag
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Список записів
  */
 router.get('/', entryController.getEntries);
 
 /**
  * @swagger
+ * /api/entries/trash:
+ *   get:
+ *     summary: Отримати записи з кошика
+ *     tags: [Trash]
+ */
+router.get('/trash', entryController.getTrash);
+
+/**
+ * @swagger
  * /api/entries/export:
  *   get:
- *     summary: Експорт записів у .txt файл
+ *     summary: Експорт у TXT
  *     tags: [Entries]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Файл успішно згенеровано
  */
 router.get('/export', entryController.exportEntries);
 
@@ -68,66 +48,54 @@ router.get('/export', entryController.exportEntries);
  * @swagger
  * /api/entries/{id}:
  *   get:
- *     summary: Отримати запис за ID
+ *     summary: Отримати за ID
  *     tags: [Entries]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Деталі запису
  */
 router.get('/:id', entryController.getEntryById);
 
 /**
  * @swagger
+ * /api/entries/{id}/history:
+ *   get:
+ *     summary: Отримати історію змін запису
+ *     tags: [History]
+ */
+router.get('/:id/history', entryController.getHistory);
+
+/**
+ * @swagger
  * /api/entries/{id}:
  *   put:
- *     summary: Оновити запис за ID
+ *     summary: Оновити за ID
  *     tags: [Entries]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/Entry'
- *     responses:
- *       200:
- *         description: Запис оновлено
  */
-router.put('/:id', entryController.updateEntry);
+router.put('/:id', validate(updateEntrySchema), entryController.updateEntry);
 
 /**
  * @swagger
  * /api/entries/{id}:
  *   delete:
- *     summary: Видалити запис за ID
+ *     summary: Перемістити в кошик
  *     tags: [Entries]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Запис видалено
  */
 router.delete('/:id', entryController.deleteEntry);
+
+/**
+ * @swagger
+ * /api/entries/{id}/restore:
+ *   patch:
+ *     summary: Відновити запис із кошика
+ *     tags: [Trash]
+ */
+router.patch('/:id/restore', entryController.restoreEntry);
+
+/**
+ * @swagger
+ * /api/entries/{id}/permanent:
+ *   delete:
+ *     summary: Видалити назавжди
+ *     tags: [Trash]
+ */
+router.delete('/:id/permanent', entryController.permanentlyDeleteEntry);
 
 module.exports = router;

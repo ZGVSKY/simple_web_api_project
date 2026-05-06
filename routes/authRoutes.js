@@ -1,46 +1,43 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
+const validate = require('../middleware/validateMiddleware');
+const { registerSchema, loginSchema } = require('../validations/authValidation');
 
 /**
  * @swagger
  * /api/auth/register:
  *   post:
- *     summary: Реєстрація нового користувача
+ *     summary: Реєстрація з Refresh Token
  *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/User'
- *     responses:
- *       201:
- *         description: Успішна реєстрація
  */
-router.post('/register', authController.register);
+router.post('/register', validate(registerSchema), authController.register);
 
 /**
  * @swagger
  * /api/auth/login:
  *   post:
- *     summary: Вхід в акаунт
+ *     summary: Вхід з Refresh Token
  *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               email:
- *                 type: string
- *               password:
- *                 type: string
- *     responses:
- *       200:
- *         description: Успішний вхід
  */
-router.post('/login', authController.login);
+router.post('/login', validate(loginSchema), authController.login);
+
+/**
+ * @swagger
+ * /api/auth/refresh:
+ *   post:
+ *     summary: Оновлення Access Token за допомогою Cookie
+ *     tags: [Auth]
+ */
+router.post('/refresh', authController.refresh);
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Вихід (очищення Cookie)
+ *     tags: [Auth]
+ */
+router.post('/logout', authController.logout);
 
 module.exports = router;
