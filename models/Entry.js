@@ -67,9 +67,29 @@ const entrySchema = new mongoose.Schema({
         ref: 'User',
         required: true,
         index: true
+    },
+    isDeleted: {
+        type: Boolean,
+        default: false,
+        index: true
+    },
+    deletedAt: {
+        type: Date,
+        default: null
     }
 }, {
     timestamps: true
+});
+
+// Текстовий індекс для швидкого пошуку
+entrySchema.index({ title: 'text', content: 'text' });
+
+// Middleware для автоматичної фільтрації видалених записів
+entrySchema.pre(/^find/, function() {
+    // Використовуємо this.options для доступу до параметрів запиту
+    if (!this.options || !this.options.withDeleted) {
+        this.where({ isDeleted: false });
+    }
 });
 
 module.exports = mongoose.model('Entry', entrySchema);

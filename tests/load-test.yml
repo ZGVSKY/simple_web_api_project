@@ -1,0 +1,48 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      rampTo: 20
+      name: "Warm up & Ramp up"
+    - duration: 120
+      arrivalRate: 20
+      name: "Sustained load"
+  
+  payload:
+    path: "./test-data.csv"
+    fields:
+      - "username"
+      - "email"
+      - "password"
+    order: sequence
+
+scenarios:
+  - name: "User flow: Register, Login, Create Entry, Get Entries"
+    flow:
+      - post:
+          url: "/api/auth/register"
+          json:
+            username: "{{ username }}"
+            email: "load_{{ $uuid }}@example.com"
+            password: "{{ password }}"
+          capture:
+            json: "$.accessToken"
+            as: "token"
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "load_{{ $uuid }}@example.com"
+            password: "{{ password }}"
+      - post:
+          url: "/api/entries"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          json:
+            title: "Load Test Entry {{ $randomString() }}"
+            content: "This is a performance test content generated automatically."
+            tags: ["load-test", "performance"]
+      - get:
+          url: "/api/entries"
+          headers:
+            Authorization: "Bearer {{ token }}"

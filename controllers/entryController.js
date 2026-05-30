@@ -1,99 +1,68 @@
-const Entry = require('../models/Entry');
+const entryService = require('../services/entryService');
+const asyncHandler = require('express-async-handler');
 
-// Створення запису
-exports.createEntry = async (req, res) => {
-    try {
-        const entry = new Entry({
-            ...req.body,
-            user: req.user.id
-        });
-        await entry.save();
-        res.status(201).json(entry);
-    } catch (error) {
-        res.status(400).json({ message: error.message });
-    }
-};
+// @desc    Create new entry
+// @route   POST /api/entries
+exports.createEntry = asyncHandler(async (req, res) => {
+    const entry = await entryService.createEntry(req.user.id, req.body);
+    res.status(201).json(entry);
+});
 
-// Отримання списку записів з фільтрацією
-exports.getEntries = async (req, res) => {
-    try {
-        const { date, tag } = req.query;
-        let query = { user: req.user.id };
+// @desc    Get all entries (active only)
+// @route   GET /api/entries
+exports.getEntries = asyncHandler(async (req, res) => {
+    const data = await entryService.getEntries(req.user.id, req.query);
+    res.json(data);
+});
 
-        if (date) {
-            const searchDate = new Date(date);
-            const startOfDay = new Date(searchDate.setHours(0, 0, 0, 0));
-            const endOfDay = new Date(searchDate.setHours(23, 59, 59, 999));
-            query.date = { $gte: startOfDay, $lte: endOfDay };
-        }
+// @desc    Get entry by ID
+// @route   GET /api/entries/:id
+exports.getEntryById = asyncHandler(async (req, res) => {
+    const entry = await entryService.getEntryById(req.user.id, req.params.id);
+    res.json(entry);
+});
 
-        if (tag) {
-            query.tags = tag;
-        }
+// @desc    Update entry
+// @route   PUT /api/entries/:id
+exports.updateEntry = asyncHandler(async (req, res) => {
+    const entry = await entryService.updateEntry(req.user.id, req.params.id, req.body);
+    res.json(entry);
+});
 
-        const entries = await Entry.find(query).sort({ date: -1 });
-        res.json(entries);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
+// @desc    Soft delete entry (move to trash)
+// @route   DELETE /api/entries/:id
+exports.deleteEntry = asyncHandler(async (req, res) => {
+    await entryService.softDeleteEntry(req.user.id, req.params.id);
+    res.json({ message: 'Запис переміщено в кошик' });
+});
 
-// Отримання одного запису
-exports.getEntryById = async (req, res) => {
-    try {
-        const entry = await Entry.findOne({ _id: req.params.id, user: req.user.id });
-        if (!entry) return res.status(404).json({ message: 'Запис не знайдено' });
-        res.json(entry);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
+// @desc    Get trash entries
+// @route   GET /api/entries/trash
+exports.getTrash = asyncHandler(async (req, res) => {
+    const entries = await entryService.getTrash(req.user.id);
+    res.json(entries);
+});
 
-// Оновлення запису
-exports.updateEntry = async (req, res) => {
-    try {
-        const entry = await Entry.findOneAndUpdate(
-            { _id: req.params.id, user: req.user.id },
-            req.body,
-            { new: true, runValidators: true }
-        );
-        if (!entry) return res.status(404).json({ message: 'Запис не знайдено' });
-        res.json(entry);
-    } catch (error) {
-        res.status(400).json({ message: error.message });
-    }
-};
+// @desc    Restore entry from trash
+// @route   PATCH /api/entries/:id/restore
+exports.restoreEntry = asyncHandler(async (req, res) => {
+    const entry = await entryService.restoreEntry(req.user.id, req.params.id);
+    res.json({ message: 'Запис відновлено', entry });
+});
 
-// Видалення запису
-exports.deleteEntry = async (req, res) => {
-    try {
-        const entry = await Entry.findOneAndDelete({ _id: req.params.id, user: req.user.id });
-        if (!entry) return res.status(404).json({ message: 'Запис не знайдено' });
-        res.json({ message: 'Запис видалено' });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
+// @desc    Permanently delete entry
+// @route   DELETE /api/entries/:id/permanent
+exports.permanentlyDeleteEntry = asyncHandler(async (req, res) => {
+    await entryService.permanentlyDeleteEntry(req.user.id, req.params.id);
+    res.json({ message: 'Запис видалено назавжди' });
+});
 
-// Експорт у .txt
-exports.exportEntries = async (req, res) => {
-    try {
-        const entries = await Entry.find({ user: req.user.id }).sort({ date: -1 });
-        
-        let content = `=== ЩОДЕННИК КОРИСТУВАЧА: ${req.user.username} ===\n\n`;
-        
-        entries.forEach(entry => {
-            content += `Дата: ${entry.date.toLocaleString('uk-UA')}\n`;
-            content += `Заголовок: ${entry.title}\n`;
-            content += `Теги: ${entry.tags.join(', ')}\n`;
-            content += `Зміст:\n${entry.content}\n`;
-            content += "-----------------------------------\n\n";
-        });
-
-        res.setHeader('Content-Type', 'text/plain');
-        res.setHeader('Content-Disposition', 'attachment; filename=diary_export.txt');
-        res.send(content);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
+// @desc    Export entries to .txt
+// @route   GET /api/entries/export
+exports.exportEntries = asyncHandler(async (req, res) => {
+    const content = await entryService.getExportContent(req.user.id, req.user.username);
+    
+    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Disposition', 'attachment; filename=diary_export.txt');
+    res.send(content);
+});
